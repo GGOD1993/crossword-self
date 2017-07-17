@@ -183,7 +183,6 @@ class Crossword(object):
 
     def check_score_horiz(self, word, row, col, word_length, score=1):
         cell_occupied = self.cell_occupied
-        print cell_occupied
         if col and cell_occupied(row, col-1) or col + word_length != self.cols and cell_occupied(row, col + word_length):
             return 0
         for letter in word[0]:
@@ -246,196 +245,19 @@ def split_words(word_list=[]):
             cross_word_list.append([word])
     return cross_word_list
 
-def make_hor_alone_words(crossword, full_list, full_row, full_col, next_col):
-    # full_row = full_col = 0
-    if len(full_list) > 2:
-        return
-    for full in full_list:
-        word_dict = {}
-        word_dict["answer"] = str(full)
-        word_dict["firstLetterRow"] = full_row
-        word_dict["firstLetterCol"] = full_col
-        word_dict["isHorizontal"] = 1
-        full_row += (crossword.cols + 2)
-        full_col += next_col
-        if crossword.result["data"]:
-            crossword.result["data"].append(word_dict)
-    
-def make_ver_alone_words(crossword, normal_list, normal_row, normal_col):
-    # normal_row = 1
-    # normal_col = crossword.cols + 2
-    for normal in normal_list:
-        word_dict = {}
-        word_dict["firstLetterRow"] = normal_row
-        word_dict["firstLetterCol"] = normal_col
-        word_dict["isHorizontal"] = 0
-        if crossword.result["data"]:
-            crossword.result["data"].append(word_dict)
-        normal_col = 0
-
-def make_two_alone_words(crossword, word_list, full_row):
-    # print crossword.min_row, crossword.max_row
-    min_row = crossword.min_row - 2
-    max_row = crossword.max_row + 2
-    for word in word_list:
-        word_length = len(word)
-        tmp_pos = (crossword.cols + 2 - word_length) / 2
-        if tmp_pos <= 1:
-            first_pos = tmp_pos
-        else:
-            first_pos = tmp_pos - 1
-        word_dict = {}
-        word_dict["answer"] = str(word)
-        word_dict["firstLetterRow"] = min_row
-        word_dict["firstLetterCol"] = first_pos
-        word_dict["isHorizontal"] = 1
-        min_row = max_row
-        # word_dict["firstLetterRow"] = full_row
-        # word_dict["firstLetterCol"] = first_pos
-        # word_dict["isHorizontal"] = 1
-        # full_row += (crossword.cols + 2)
-        if crossword.result["data"]:
-            crossword.result["data"].append(word_dict)
-
-def make_alone_words(crossword, word_list):
-    add_list = split_words(word_list)
-    aloneLength = len(add_list)
-    if aloneLength > 0 and aloneLength <= 4:
-        near_word = full_word = 0
-        full_list = near_list = []
-        normal_list = []
-        all_list = []
-        for word in add_list:
-            for i in word:
-                if len(i) == crossword.cols + 2:
-                    full_list.append(i)
-                    all_list.append(i)
-                    full_word += 1
-                elif len(i) == crossword.cols + 1:
-                    near_list.append(i)
-                    # normal_list.append(i)
-                    all_list.append(i)
-                    near_word += 1
-                else:
-                    all_list.append(i)
-                    normal_list.append(i)
-        if full_word >= 3 or near_word >= 3:
-            return
-        full_near_num = full_word + near_word
-        if full_near_num >= 3:
-            return
-
-        if aloneLength <= 2:
-            make_two_alone_words(crossword, all_list, 0)
-        else:
-            full_row = full_col = 0
-            make_hor_alone_words(crossword, full_list, full_row, full_col, 0)
-
-            if full_word > 0:
-                normal_row = 1
-                normal_col = crossword.cols + 2
-                make_ver_alone_words(crossword, normal_list, normal_row, normal_col)
-            else:
-                if near_word > 0:
-                    make_hor_alone_words(crossword, near_list, 0, 0, 1)
-                    make_ver_alone_words(crossword, normal_list, 2, crossword.cols + 2)
-                else:
-                    if aloneLength > 2:
-                        hor_list = normal_list[:2]
-                        make_hor_alone_words(crossword, hor_list, 0, 1, 0)
-                        ver_list = normal_list[2:aloneLength]
-                        make_ver_alone_words(crossword, ver_list, 1, crossword.cols + 2)
-                    else:
-                        make_hor_alone_words(crossword, normal_list, 0, 1, 0)
-            
-def load_alone_words(sheet_name, col_num, sheet_index, alone_col):
-    workbook = xlrd.open_workbook(r'D:\crossword\Words-WordCrumble(en)-2.xls') 
-    sheet = workbook.sheet_by_name(sheet_name)
-    data = sheet.col_values(col_num) 
-    add_data = sheet.col_values(alone_col) 
-    copyworkbook = copy(workbook)
-    write_sheet = copyworkbook.get_sheet(sheet_index)
-    row = 0
-    size = 0
-    for word_list in add_data:
-        i = data[row]
-        if i:
-            excel_data = i.encode('unicode-escape').decode('string_escape') 
-            json_data = json.loads(excel_data)
-            size = json_data['size']
-        if size:
-            add_answer = only_make_alone_words(size, add_data[row])
-            if json_data["data"]:
-                for answer in json_data["data"]:
-                    answer["firstLetterRow"] += 2
-                    answer["firstLetterCol"] += 2  
-            json_data["data"].append(add_answer)
-            json_data["size"] += 2 
-            json_result = json.dumps(json_data)
-            write_sheet.write(row, col_num, json_result)
-        row += 1
-    copyworkbook.save(r'D:\crossword\Words-WordCrumble(en)-2.xls')
-
-def only_make_alone_words(size, word_list):
-    add_list = split_words(word_list)
-    aloneLength = len(add_list)
-    data = []
-    if aloneLength > 0 and aloneLength <= 4:
-        fisrt_pos = random.randint(1, 4)
-        for word in add_list:
-            for i in word:
-                word_len = len(i)
-                if word_len <= size + 2:
-                    world_first = random.randint(0, size + 2 - word_len)
-                    word_dict = {}
-                    word_dict["answer"] = str(i)
-                    if fisrt_pos == 1:
-                        word_dict["firstLetterRow"] = 0
-                        word_dict["firstLetterCol"] = world_first
-                        word_dict["isHorizontal"] = 1
-                    elif fisrt_pos == 2:
-                        word_dict["firstLetterRow"] = world_first
-                        word_dict["firstLetterCol"] = size + 2
-                        word_dict["isHorizontal"] = 0
-                    elif fisrt_pos == 3:
-                        word_dict["firstLetterRow"] = size + 2
-                        word_dict["firstLetterCol"] = world_first
-                        word_dict["isHorizontal"] = 1
-                    elif fisrt_pos == 4:
-                        word_dict["firstLetterRow"] = world_first
-                        word_dict["firstLetterCol"] = 0
-                        word_dict["isHorizontal"] = 0
-                    data.append(word_dict)
-                    if fisrt_pos == 4:
-                        fisrt_pos = 1
-                    else:
-                        fisrt_pos += 1
-    return data
-#entry of run the core alg
-#word_list 答案列表 add_word_list aloneword列表
-
 def run_word(col=4, row=4, word_list=[], add_world_list=[], num=0):
     num += 1
     if num >= 20:
         return
-#check the alone wordlist
-    if len(add_world_list) > 0:
-        add_size = 2
-    else:
-        add_size = 0
 #初始化crossword对象 初始化的时候只有answer单词列表
     cross_word = Crossword(row, col, '-', word_list)
 #答案排布计算
     result_num = cross_word.compute_crossword(1.00, 0)
     if result_num == len(word_list):
-        #填充aloneword
-        #make_alone_words(cross_word, add_world_list)
         result = cross_word.result
-        # print result
+        print result
         return result
     else:
-        # return run_word(col+1, row+1, word_list, num)
-        #递归计算
         return run_word(col+1, row+1, word_list, add_world_list, num)
 
 
