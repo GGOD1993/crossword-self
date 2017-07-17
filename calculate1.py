@@ -35,7 +35,6 @@ import xlrd
 import itertools 
 from xlutils.copy import copy;
 
-
 PY2 = sys.version_info[0] == 2
 if PY2:
     import codecs
@@ -43,6 +42,7 @@ if PY2:
     open = partial(codecs.open, encoding='utf-8')
 
 class Crossword(object):
+    calculatetimes = 0
     def __init__(self, rows, cols, empty=' ', available_words=[]):
         self.rows = rows
         self.cols = cols
@@ -134,6 +134,7 @@ class Crossword(object):
         #在这里检测出共用字母的位置 l,v是共用字母在当前单词的编号和let_coords里面的信息
         temp_list =  [(l, v) for l, letter in enumerate(word[0])
                       for k, v in self.let_coords.items() if k == letter]
+        print temp_list
         for coord in temp_list:
             letc = coord[0]
             for item in coord[1]:
@@ -159,16 +160,9 @@ class Crossword(object):
         """Place the first word at a random position in the grid."""
         vertical = random.randrange(0, 2)
         if vertical:
-            #垂直放置，行数不够无法放置
-            if self.rows <= len(word[0]):
-                return 0
-            #在合理范围内随机放置
             row = random.randrange(0, self.rows - len(word[0]))
             col = random.randrange(0, self.cols)
         else:
-            #同上
-            if self.cols <= len(word[0]):
-                return 0
             row = random.randrange(0, self.rows)
             col = random.randrange(0, self.cols - len(word[0]))
         self.set_word(word, row, col, vertical)
@@ -177,6 +171,7 @@ class Crossword(object):
         """Add the rest of the words to the grid."""
         coordlist = self.get_coords(word)
         if not coordlist:
+            print 'not set word'
             return
         row, col, vertical = coordlist[0], coordlist[1], coordlist[2]
         self.set_word(word, row, col, vertical)
@@ -221,6 +216,7 @@ class Crossword(object):
         horizontal = not vertical
         for letter in word[0]:
             self.grid[row][col] = letter
+            #空位则添加进去，已经存在的为相交点，从let_coords中扣除
             if (row, col, horizontal) not in self.let_coords[letter]:
                 self.let_coords[letter].append((row, col, vertical))
             else:
@@ -229,6 +225,13 @@ class Crossword(object):
                 row += 1
             else:
                 col += 1
+        #key = [i for i in range(2) for j in range(3) for k in range(4)]
+        #print key
+        Crossword.calculatetimes += 1
+        print Crossword.calculatetimes
+        for i in self.grid:
+            print i
+        print '\n'
 
     def cell_occupied(self, row, col):
         cell = self.grid[row][col]
@@ -255,11 +258,9 @@ def run_word(col=4, row=4, word_list=[], add_world_list=[], num=0):
     result_num = cross_word.compute_crossword(1.00, 0)
     if result_num == len(word_list):
         result = cross_word.result
-        print result
         return result
     else:
         return run_word(col+1, row+1, word_list, add_world_list, num)
-
 
 #as main load in xls & print out result
 def load_word(sheet_name, col_num, write_col, sheet_index, alone_col):
@@ -267,7 +268,7 @@ def load_word(sheet_name, col_num, write_col, sheet_index, alone_col):
     workbook = xlrd.open_workbook(r'/Users/ggod/Desktop/wordxls/word4.xls') 
     sheet = workbook.sheet_by_name(sheet_name)
     data = sheet.col_values(col_num) 
-    add_data = sheet.col_values(alone_col) 
+    add_data = sheet.col_values(alone_col)
     copyworkbook = copy(workbook)
     write_sheet = copyworkbook.get_sheet(sheet_index)
     row = 0
