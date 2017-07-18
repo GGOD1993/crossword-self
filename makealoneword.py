@@ -27,6 +27,7 @@ import json
 from copy import copy as duplicate
 
 import sys
+import math
 import json
 reload(sys)
 sys.setdefaultencoding('utf8')
@@ -43,11 +44,12 @@ if PY2:
 
 class Crossword(object):
     calculatetimes = 0
-    def __init__(self, rows, cols, empty=' ', available_words=[]):
+    def __init__(self, rows, cols, empty=' ', available_words=[], add_world_list=[]):
         self.rows = rows
         self.cols = cols
         self.empty = empty
         self.available_words = available_words
+        self.add_world_list = split_words(add_world_list)
         self.let_coords = defaultdict(list)
         self.result = {}
         self.min_col = 15
@@ -121,11 +123,92 @@ class Crossword(object):
                     data_list.append(word_dict)
                     self.result["data"] = data_list
                 break
-        answer = '\n'.join([''.join([u'{} '.format(c) for c in self.best_grid[r]])
+
+        for word in self.add_world_list:
+            wordindex = 0
+            resultlist = calculate_ilegalrect(self.best_grid)
+
+            is_insert_vert = judge_insert_type(resultlist)
+
+            is_insert_first = judge_insert_direction(is_insert_vert, resultlist)
+
+            insert_pos =  self.insert_aloneword(word[0], is_insert_vert, is_insert_first, resultlist)
+            if insert_pos != None:
+                for coord in insert_pos:
+                    self.best_grid[coord[0]][coord[1]] = word[0][wordindex]
+                    wordindex += 1
+
+            answer = '\n'.join([''.join([u'{} '.format(c) for c in self.best_grid[r]])
                             for r in range(self.rows)])
-      	print answer + '\n\n' + str(len(self.best_wordlist)) + ' out of ' + str(wordlist_length)
+            print answer
+            #矩阵格式化输出
+            numrect = '\n'.join([''.join([u'{} '.format(c) for c in resultlist[r]])
+                            for r in range(len(resultlist))])
+
+
+            #print numrect
+            print numrect
+      	 #print answer + '\n\n' + str(len(self.best_wordlist)) + ' out of ' + str(wordlist_length)
         self.result["size"] = self.cols + add_size
         return len(self.best_wordlist)
+
+    #插入独立词语
+
+    def insert_aloneword(self, word, is_insert_vert, is_insert_first, numlist = []):
+        wordlen = len(word)
+        if is_insert_first:
+            for i in range(len(numlist)):
+                for j in range(len(numlist[i])):
+                    if numlist[i][j] == 1:
+                        if is_insert_vert:
+                            Vresultval = self.find_pos_vert(i, j, 1, wordlen, numlist)
+                            if Vresultval != None:
+                                return Vresultval
+                        else:
+                            Hresultval = self.find_pos_horiz(i, j, 1, wordlen, numlist)
+                            if Hresultval != None:
+                                return Hresultval
+        else:
+            numlist_length = len(numlist)
+            for i in range(numlist_length):
+                for j in range(numlist_length):
+                    if numlist[numlist_length-i-1][numlist_length-j-1] == 1:
+                        if is_insert_vert:
+                            Vresultval = self.find_pos_vert(numlist_length-i-1, numlist_length-j-1, 1, wordlen, numlist)
+                            if Vresultval != None:
+                                return Vresultval
+                        else:
+                            Hresultval = self.find_pos_horiz(numlist_length-i-1, numlist_length-j-1, 1, wordlen, numlist)
+                            if Hresultval != None:
+                                return Hresultval
+
+    def find_pos_horiz(self, i, j, count, wordlen, numlist = []):
+        if j >= len(numlist) or numlist[i][j] == 0:
+            return
+
+        if count == wordlen:
+            return [[i, j]]
+        else:
+            resultval = self.find_pos_horiz(i, j+1, count+1, wordlen, numlist)
+            if resultval != None:
+                resList = []
+                resList.append([i, j])
+                resList.extend(resultval)
+                return resList
+
+    def find_pos_vert(self, i, j, count, wordlen, numlist = []):
+        if i >= len(numlist) or numlist[i][j] == 0:
+            return
+
+        if count == wordlen:
+            return [[i, j]]
+        else:
+           resultval = self.find_pos_vert(i+1, j, count+1, wordlen, numlist)
+           if resultval != None:
+                resList = []
+                resList.append([i, j])
+                resList.extend(resultval)
+                return resList
 
     def get_coords(self, word):
         """Return possible coordinates for each letter."""
@@ -233,6 +316,95 @@ class Crossword(object):
         else:
             return True
 
+def judge_insert_direction(is_insert_vert, numlist = []):
+    numlist_length = len(numlist)
+    first_board = math.floor(numlist_length/2)
+    second_board = math.ceil(numlist_length/2+1)
+    firstpart_num = 0
+    secondpart_num = 0
+    if is_insert_vert:
+        for i in range(numlist_length):
+            for j in range(numlist_length):
+                if j <= first_board:
+                    firstpart_num += numlist[i][j]
+                if j >= second_board:
+                    secondpart_num += numlist[i][j]
+    else:
+        for i in range(numlist_length):
+            for j in range(numlist_length):
+                if i <= first_board:
+                    firstpart_num += numlist[i][j]
+                if i >= first_board:
+                    secondpart_num += numlist[i][j]
+
+    if firstpart_num > secondpart_num:
+        return 1
+    else:
+        return 0
+
+def judge_insert_type(numlist = []):
+    numlist_length = len(numlist)
+    max_row = 0
+    max_col = 0
+    row_count = 0
+    col_count = 0
+    for i in range(numlist_length):
+        for j in range(numlist_length):
+            row_count += numlist[i][j]
+            col_count += numlist[j][i]
+        if row_count > max_row:
+            max_row = row_count
+        if col_count > max_col:
+            max_col = col_count
+        row_count = 0
+        col_count = 0
+
+    if max_row > max_col:
+        return 0
+    else:
+        return 1
+
+#计算01矩阵，传入best_grid
+def calculate_ilegalrect(middata = []):
+
+    rectlen = len(middata)
+
+    numlist = [[0 for col in range(rectlen)] for row in range(rectlen)]
+        
+    for i in range(len(middata)):
+        for j in range(len(middata[i])):
+            if middata[i][j] == '-':
+                numlist[i][j] = 1
+            else:
+                numlist[i][j] = 0
+
+    backlist = [[1 for col in range(len(numlist) + 2)] for row in range(len(numlist) + 2)]
+    resultlist = [[0 for col in range(len(numlist))] for row in range(len(numlist))]
+
+    for i in range(len(numlist)):
+        for j in range(len(numlist[i])):
+            backlist[i+1][j+1] = numlist[i][j]
+
+    #print backlist
+    for i in range(len(backlist)):
+        for j in range(len(backlist[i])):
+            if i == 0 or i == len(backlist)-1 or j == 0 or j == len(backlist)-1:
+                continue
+            else:
+                if (backlist[i-1][j-1] == 0 or backlist[i-1][j] == 0 or backlist[i-1][j+1] == 0 or backlist[i][j-1] == 0 or backlist[i][j+1] == 0 or backlist[i+1][j-1] == 0 or backlist[i+1][j] == 0 or backlist[i+1][j+1] == 0) and backlist[i][j] == 1:
+                    backlist[i][j] = 2
+
+    for i in range(len(backlist)):
+        for j in range(len(backlist[i])):
+            if i == 0 or i == len(backlist)-1 or j == 0 or j == len(backlist)-1:
+                continue
+            else:
+                resultlist[i-1][j-1] = backlist[i][j]
+                if resultlist[i-1][j-1] == 2:
+                    resultlist[i-1][j-1] = 0
+
+    return resultlist
+
 def split_words(word_list=[]):
     cross_word_list = []
     new_list = word_list.split('|')
@@ -246,7 +418,7 @@ def run_word(col=4, row=4, word_list=[], add_world_list=[], num=0):
     if num >= 20:
         return
 #初始化crossword对象 初始化的时候只有answer单词列表
-    cross_word = Crossword(row, col, '-', word_list)
+    cross_word = Crossword(row, col, '-', word_list, add_world_list)
 #答案排布计算
     result_num = cross_word.compute_crossword(1.00, 0)
     if result_num == len(word_list):
