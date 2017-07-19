@@ -25,6 +25,7 @@ from operator import itemgetter
 from collections import defaultdict
 import json
 from copy import copy as duplicate
+from copy import deepcopy as deepduplicate
 
 import sys
 import math
@@ -123,46 +124,131 @@ class Crossword(object):
                     data_list.append(word_dict)
                     self.result["data"] = data_list
                 break
-        i = 0
-        while i < len(self.add_world_list):
-            wordindex = 0
-            resultlist = calculate_ilegalrect(self.best_grid)
+        if len(self.best_wordlist) == wordlist_length:
+            self.check_best_pos()
+            self.best_grid_buffer = deepduplicate(self.best_grid)
+            self.add_world_list = sort_add_word(self.add_world_list)
+            print self.add_world_list
+            i = 0
+            alone_word_result = []
+            while i < len(self.add_world_list):
+                alone_add_data = []
+                #结果数据插入单词
+                alone_add_data.append(self.add_world_list[i][0])
 
-            is_insert_vert = judge_insert_type(resultlist)
+                wordindex = 0
+                resultlist = calculate_ilegalrect(self.best_grid_buffer)
 
-            is_insert_first = judge_insert_direction(is_insert_vert, resultlist)
+                is_insert_vert = judge_insert_type(resultlist)
+                #结果数据插入插入类型
+                alone_add_data.append(int(not is_insert_vert))
 
-            insert_pos =  self.insert_aloneword(self.add_world_list[i][0], is_insert_vert, is_insert_first, resultlist)
-            if insert_pos != None:
-                for coord in insert_pos:
-                    self.best_grid[coord[0]][coord[1]] = self.add_world_list[i][0][wordindex]
-                    wordindex += 1
-                i+=1
-            else:
-                self.best_grid = self.extend_best_grid()
-                print self.best_grid
+                is_insert_first = judge_insert_direction(is_insert_vert, resultlist)
 
+                insert_pos =  self.insert_aloneword(self.add_world_list[i][0], is_insert_vert, is_insert_first, resultlist)
 
-            answer = '\n'.join([''.join([u'{} '.format(c) for c in self.best_grid[r]])
-                            for r in range(self.rows)])
+                if insert_pos != None:
+                    #结果数据插入首字母坐标
+                    alone_add_data.append(insert_pos[0][0])
+                    alone_add_data.append(insert_pos[0][1])
+                    for coord in insert_pos:
+                        self.best_grid_buffer[coord[0]][coord[1]] = self.add_world_list[i][0][wordindex]
+                        wordindex += 1
+                    i+=1
+                    alone_word_result.append(alone_add_data)
+                else:
+                    self.best_grid_buffer = []
+                    self.best_grid = self.extend_best_grid()
+                    self.check_best_pos()
+                    self.best_grid_buffer = deepduplicate(self.best_grid)
+                    alone_add_data = []
+                    alone_word_result = []
+                    i = 0
+            for alone_word in alone_word_result:
+                alone_word_dict = {}
+                alone_word_dict["answer"] = str(alone_word[0])
+                alone_word_dict["firstLetterRow"] = alone_word[2]
+                alone_word_dict["firstLetterCol"] = alone_word[3]
+                alone_word_dict["isHorizontal"] = alone_word[1]
+                if self.result.has_key('data'):
+                    data_list = self.result['data']
+                else:
+                    data_list = []
+                data_list.append(alone_word_dict)
+                self.result["data"] = data_list
+
+            answer = '\n'.join([''.join([u'{} '.format(c) for c in self.best_grid_buffer[r]])
+                                for r in range(len(self.best_grid_buffer))])
             print answer
-            #矩阵格式化输出
-            numrect = '\n'.join([''.join([u'{} '.format(c) for c in resultlist[r]])
-                            for r in range(len(resultlist))])
+        #矩阵格式化输出
+        #numrect = '\n'.join([''.join([u'{} '.format(c) for c in resultlist[r]])
+        #                    for r in range(len(resultlist))])
 
 
-            #print numrect
-            print numrect
+        #print numrect
+        #print numrect
       	 #print answer + '\n\n' + str(len(self.best_wordlist)) + ' out of ' + str(wordlist_length)
-        self.result["size"] = self.cols + add_size
-        return len(self.best_wordlist)
+            self.result["size"] = self.cols
+            return len(self.best_wordlist)
+
+    def check_best_pos(self):
+        listlen = len(self.best_grid)
+        isright = True
+        hasaletter = False
+
+        for i in range(listlen):
+            if self.best_grid[0][i] != '-' or self.best_grid[listlen-1][i] != '-':
+                hasaletter = True
+
+        if not hasaletter:
+            print "need move ho"
+            for i in range(listlen-1):
+                for j in range(listlen):
+                    self.best_grid[i][j] = self.best_grid[i+1][j]
+
+            for i in range(listlen):
+                self.best_grid[listlen-1][i] = '-'
+
+        hasaletter = False
+
+        for i in range(listlen):
+            if self.best_grid[i][0] != '-' or self.best_grid[i][listlen-1] != '-':
+                hasaletter = True
+
+        if not hasaletter:
+            print "need move ve"
+            for i in range(listlen):
+                for j in range(listlen-1):
+                    self.best_grid[i][j] = self.best_grid[i][j+1]
+
+            for i in range(listlen):
+                self.best_grid[i][listlen-1] = '-'
 
     def extend_best_grid(self):
+        self.cols += 1
+        self.rows += 1
+        resultlist = calculate_ilegalrect(self.best_grid)
         rectlen = len(self.best_grid)
         new_grid = [['-' for col in range(rectlen+1)] for row in range(rectlen+1)]
-        for i in range(rectlen):
-            for j in range(rectlen):
-                new_grid[i][j] = self.best_grid[i][j]
+        mostid = most_letter_id(resultlist)
+
+        if mostid != 0:
+            if mostid == 1:
+                for i in range(rectlen):
+                    for j in range(rectlen):
+                        new_grid[i+1][j] = self.best_grid[i][j]
+            if mostid == 2:
+                for i in range(rectlen):
+                    for j in range(rectlen):
+                        new_grid[i+1][j+1] = self.best_grid[i][j]
+            if mostid == 3:
+                for i in range(rectlen):
+                    for j in range(rectlen):
+                        new_grid[i][j+1] = self.best_grid[i][j]
+            if mostid == 4:
+                for i in range(rectlen):
+                    for j in range(rectlen):
+                        new_grid[i][j] = self.best_grid[i][j]
         return new_grid
     #插入独立词语
 
@@ -254,9 +340,13 @@ class Crossword(object):
         """Place the first word at a random position in the grid."""
         vertical = random.randrange(0, 2)
         if vertical:
+            if self.rows <= len(word[0]):
+                return 0
             row = random.randrange(0, self.rows - len(word[0]))
             col = random.randrange(0, self.cols)
         else:
+            if self.cols <= len(word[0]):
+                return 0
             row = random.randrange(0, self.rows)
             col = random.randrange(0, self.cols - len(word[0]))
         self.set_word(word, row, col, vertical)
@@ -328,10 +418,51 @@ class Crossword(object):
         else:
             return True
 
+def sort_add_word(lists = []):
+    # 冒泡排序
+    count = len(lists)
+    for i in range(0, count):
+        for j in range(i + 1, count):
+            if len(lists[i][0]) < len(lists[j][0]):
+                lists[i], lists[j] = lists[j], lists[i]
+    return lists
+
+def most_letter_id(numlist = []):
+    numlist_length = len(numlist)
+    first_board = math.floor(numlist_length/2.0-1)
+    second_board = math.ceil(numlist_length/2.0)
+    firstpart_num = 0
+    secondpart_num = 0
+    thirdpart_num = 0
+    fourthpart_num = 0
+    for i in range(numlist_length):
+        for j in range(numlist_length):
+            if i <= first_board and j >=second_board:
+                firstpart_num += numlist[i][j]
+            if i <= first_board and j <= first_board:
+                secondpart_num += numlist[i][j]
+            if i >= second_board and j <= first_board:
+                thirdpart_num += numlist[i][j]
+            if i >= second_board and j >= second_board:
+                fourthpart_num += numlist[i][j]
+
+    maxnum = max(firstpart_num, secondpart_num, thirdpart_num, fourthpart_num)
+    if maxnum == firstpart_num:
+        return 1
+    if maxnum == secondpart_num:
+        return 2
+    if maxnum == thirdpart_num:
+        return 3
+    if maxnum == fourthpart_num:
+        return 4
+    return 0
+
+
+
 def judge_insert_direction(is_insert_vert, numlist = []):
     numlist_length = len(numlist)
-    first_board = math.floor(numlist_length/2)
-    second_board = math.ceil(numlist_length/2+1)
+    first_board = math.floor(numlist_length/2.0-1)
+    second_board = math.ceil(numlist_length/2.0)
     firstpart_num = 0
     secondpart_num = 0
     if is_insert_vert:
@@ -380,7 +511,6 @@ def judge_insert_type(numlist = []):
 def calculate_ilegalrect(middata = []):
 
     rectlen = len(middata)
-
     numlist = [[0 for col in range(rectlen)] for row in range(rectlen)]
         
     for i in range(len(middata)):
@@ -442,8 +572,8 @@ def run_word(col=4, row=4, word_list=[], add_world_list=[], num=0):
 #as main load in xls & print out result
 def load_word(sheet_name, col_num, write_col, sheet_index, alone_col):
     # load in xls by ggod
-    #workbook = xlrd.open_workbook(r'/Users/ggod/Desktop/wordxls/word4.xls')
-    workbook = xlrd.open_workbook(r'C:/Users/Administrator/Desktop/wordxls/word4.xls') 
+    workbook = xlrd.open_workbook(r'/Users/ggod/Desktop/wordxls/word5.xls')
+    #workbook = xlrd.open_workbook(r'C:/Users/Administrator/Desktop/wordxls/word4.xls') 
     sheet = workbook.sheet_by_name(sheet_name)
     data = sheet.col_values(col_num) 
     add_data = sheet.col_values(alone_col)
@@ -462,8 +592,8 @@ def load_word(sheet_name, col_num, write_col, sheet_index, alone_col):
             json_result = json.dumps(result)
             write_sheet.write(row, write_col, json_result)
         row += 1
-    #copyworkbook.save(r'/Users/ggod/Desktop/wordxls/word4.xls')
-    copyworkbook.save(r'C:/Users/Administrator/Desktop/wordxls/word4.xls')
+    copyworkbook.save(r'/Users/ggod/Desktop/wordxls/word6.xls')
+    #copyworkbook.save(r'C:/Users/Administrator/Desktop/wordxls/word4.xls')
 
 load_word('ErrorList', 4, 7, 0, 6)
 
