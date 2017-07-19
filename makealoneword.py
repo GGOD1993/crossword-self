@@ -29,6 +29,7 @@ from copy import deepcopy as deepduplicate
 
 import sys
 import math
+import time
 import json
 reload(sys)
 sys.setdefaultencoding('utf8')
@@ -97,7 +98,8 @@ class Crossword(object):
                 self.max_col = 0
                 self.min_row = 15
                 self.max_row = 0
-
+                '''
+                print self.best_wordlist
                 for best_word in self.best_wordlist:
                     word_dict = {}
                     if len(best_word) == 4:
@@ -123,12 +125,17 @@ class Crossword(object):
                         data_list = []
                     data_list.append(word_dict)
                     self.result["data"] = data_list
+                '''
                 break
+        
         if len(self.best_wordlist) == wordlist_length:
-            self.check_best_pos()
+            #找到答案后best_grid输出
+            #answer = '\n'.join([''.join([u'{} '.format(c) for c in self.best_grid[r]])
+            #                for r in range(len(self.best_grid))])
+            #print answer
             self.best_grid_buffer = deepduplicate(self.best_grid)
             self.add_world_list = sort_add_word(self.add_world_list)
-            print self.add_world_list
+            #print self.add_world_list
             i = 0
             alone_word_result = []
             while i < len(self.add_world_list):
@@ -138,7 +145,14 @@ class Crossword(object):
 
                 wordindex = 0
                 resultlist = calculate_ilegalrect(self.best_grid_buffer)
-
+                #字母矩阵输出
+                #answer = '\n'.join([''.join([u'{} '.format(c) for c in self.best_grid_buffer[r]])
+                #               for r in range(len(self.best_grid_buffer))])
+                #print answer
+                #矩阵格式化输出
+                numrect = '\n'.join([''.join([u'{} '.format(c) for c in resultlist[r]])
+                            for r in range(len(resultlist))])
+                #print numrect
                 is_insert_vert = judge_insert_type(resultlist)
                 #结果数据插入插入类型
                 alone_add_data.append(int(not is_insert_vert))
@@ -159,11 +173,42 @@ class Crossword(object):
                 else:
                     self.best_grid_buffer = []
                     self.best_grid = self.extend_best_grid()
-                    self.check_best_pos()
                     self.best_grid_buffer = deepduplicate(self.best_grid)
                     alone_add_data = []
                     alone_word_result = []
                     i = 0
+
+            self.min_col = 15
+            self.max_col = 0
+            self.min_row = 15
+            self.max_row = 0
+            for best_word in self.best_wordlist:
+                word_dict = {}
+                if len(best_word) == 4:
+                    word_dict["answer"] = str(best_word[0])
+                    word_dict["firstLetterRow"] = best_word[1] + add_size
+                    word_dict["firstLetterCol"] = best_word[2] + add_size
+                    vertical = best_word[3]
+                    self.make_min_max(best_word[1] + add_size, best_word[2] + add_size)
+                else:
+                    word_dict["answer"] = str(best_word[0])
+                    word_dict["firstLetterRow"] = best_word[2] + add_size
+                    word_dict["firstLetterCol"] = best_word[3] + add_size
+                    vertical = best_word[4] 
+                    self.make_min_max(best_word[2] + add_size, best_word[3] + add_size)
+                if vertical:
+                    ishorizontal = 0 #col
+                else:
+                    ishorizontal = 1 #row
+                word_dict["isHorizontal"] = ishorizontal
+                if self.result.has_key('data'):
+                    data_list = self.result['data']
+                else:
+                    data_list = []
+                data_list.append(word_dict)
+                self.result["data"] = data_list
+
+            #独立词插入data数据
             for alone_word in alone_word_result:
                 alone_word_dict = {}
                 alone_word_dict["answer"] = str(alone_word[0])
@@ -177,18 +222,14 @@ class Crossword(object):
                 data_list.append(alone_word_dict)
                 self.result["data"] = data_list
 
+        #print numrect
+      	 #print answer + '\n\n' + str(len(self.best_wordlist)) + ' out of ' + str(wordlist_length)
+            #最终答案输出
             answer = '\n'.join([''.join([u'{} '.format(c) for c in self.best_grid_buffer[r]])
                                 for r in range(len(self.best_grid_buffer))])
             print answer
-        #矩阵格式化输出
-        #numrect = '\n'.join([''.join([u'{} '.format(c) for c in resultlist[r]])
-        #                    for r in range(len(resultlist))])
-
-
-        #print numrect
-        #print numrect
-      	 #print answer + '\n\n' + str(len(self.best_wordlist)) + ' out of ' + str(wordlist_length)
             self.result["size"] = self.cols
+
             return len(self.best_wordlist)
 
     def check_best_pos(self):
@@ -225,26 +266,44 @@ class Crossword(object):
                 self.best_grid[i][listlen-1] = '-'
 
     def extend_best_grid(self):
-        self.cols += 1
-        self.rows += 1
+        self.cols = len(self.best_grid) + 1
+        self.rows = self.cols
         resultlist = calculate_ilegalrect(self.best_grid)
         rectlen = len(self.best_grid)
         new_grid = [['-' for col in range(rectlen+1)] for row in range(rectlen+1)]
         mostid = most_letter_id(resultlist)
+        best_word_len = range(len(self.best_wordlist))
 
         if mostid != 0:
             if mostid == 1:
                 for i in range(rectlen):
                     for j in range(rectlen):
                         new_grid[i+1][j] = self.best_grid[i][j]
+                for i in best_word_len:
+                    if len(self.best_wordlist[i]) == 4:
+                        self.best_wordlist[i][1] += 1
+                    else:
+                        self.best_wordlist[i][2] += 1
             if mostid == 2:
                 for i in range(rectlen):
                     for j in range(rectlen):
                         new_grid[i+1][j+1] = self.best_grid[i][j]
+                for i in best_word_len:
+                    if len(self.best_wordlist[i]) == 4:
+                        self.best_wordlist[i][1] += 1
+                        self.best_wordlist[i][2] += 1
+                    else:
+                        self.best_wordlist[i][2] += 1
+                        self.best_wordlist[i][3] += 1
             if mostid == 3:
                 for i in range(rectlen):
                     for j in range(rectlen):
                         new_grid[i][j+1] = self.best_grid[i][j]
+                for i in best_word_len:
+                    if len(self.best_wordlist[i]) == 4:
+                        self.best_wordlist[i][2] += 1
+                    else:
+                        self.best_wordlist[i][3] += 1
             if mostid == 4:
                 for i in range(rectlen):
                     for j in range(rectlen):
@@ -570,10 +629,11 @@ def run_word(col=4, row=4, word_list=[], add_world_list=[], num=0):
         return run_word(col+1, row+1, word_list, add_world_list, num)
 
 #as main load in xls & print out result
-def load_word(sheet_name, col_num, write_col, sheet_index, alone_col):
+def load_word(sheet_name, col_num, write_col, sheet_index, alone_col, startrect):
     # load in xls by ggod
-    workbook = xlrd.open_workbook(r'/Users/ggod/Desktop/wordxls/word5.xls')
     #workbook = xlrd.open_workbook(r'C:/Users/Administrator/Desktop/wordxls/word4.xls') 
+    workbook = xlrd.open_workbook(r'/Users/ggod/Desktop/wordxls/WORDTOEXL.xls')
+    #workbook = xlrd.open_workbook(r'/Users/ggod/Desktop/wordxls/word4.xls')
     sheet = workbook.sheet_by_name(sheet_name)
     data = sheet.col_values(col_num) 
     add_data = sheet.col_values(alone_col)
@@ -587,13 +647,23 @@ def load_word(sheet_name, col_num, write_col, sheet_index, alone_col):
             for word in new_list:
                 if word != "":
                     cross_word_list.append([word])
-            result = run_word(7, 7, cross_word_list, add_data[row])
+            result = run_word(startrect, startrect, cross_word_list, add_data[row])
             # result = run_word(3, 3, cross_word_list, [])
             json_result = json.dumps(result)
             write_sheet.write(row, write_col, json_result)
         row += 1
-    copyworkbook.save(r'/Users/ggod/Desktop/wordxls/word6.xls')
     #copyworkbook.save(r'C:/Users/Administrator/Desktop/wordxls/word4.xls')
+    copyworkbook.save(r'/Users/ggod/Desktop/wordxls/WORDTOEXL.xls')
+    #copyworkbook.save(r'/Users/ggod/Desktop/wordxls/word4.xls')
 
-load_word('ErrorList', 4, 7, 0, 6)
+starttime = time.time()
+load_word('Word_0', 4, 7, 0, 6, 3)
+load_word('Word_1', 4, 7, 1, 6, 5)
+load_word('Word_2', 4, 7, 2, 6, 5)
+load_word('Word_3', 4, 7, 3, 6, 5)
+load_word('Word_4', 4, 7, 4, 6, 5)
+load_word('Word_5', 4, 7, 5, 6, 5)
+#load_word('ErrorList', 4, 7, 0, 6, 5)
+
+print "finish in " + str(time.time() - starttime)
 
