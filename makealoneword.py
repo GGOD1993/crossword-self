@@ -124,7 +124,7 @@ class Crossword(object):
                     self.result["data"] = data_list
                 break
 
-        for word in self.add_world_list:
+        for i in range(len(self.add_world_list)):
             wordindex = 0
             resultlist = calculate_ilegalrect(self.best_grid)
 
@@ -132,11 +132,15 @@ class Crossword(object):
 
             is_insert_first = judge_insert_direction(is_insert_vert, resultlist)
 
-            insert_pos =  self.insert_aloneword(word[0], is_insert_vert, is_insert_first, resultlist)
+            insert_pos =  self.insert_aloneword(self.add_world_list[i][0], is_insert_vert, is_insert_first, resultlist)
             if insert_pos != None:
                 for coord in insert_pos:
-                    self.best_grid[coord[0]][coord[1]] = word[0][wordindex]
+                    self.best_grid[coord[0]][coord[1]] = self.add_world_list[i][0][wordindex]
                     wordindex += 1
+            else:
+                self.best_grid = self.extend_best_grid()
+                i-=1
+
 
             answer = '\n'.join([''.join([u'{} '.format(c) for c in self.best_grid[r]])
                             for r in range(self.rows)])
@@ -152,6 +156,13 @@ class Crossword(object):
         self.result["size"] = self.cols + add_size
         return len(self.best_wordlist)
 
+    def extend_best_grid(self):
+        rectlen = len(self.best_grid)
+        new_grid = [['-' for col in range(rectlen+1)] for row in range(rectlen+1)]
+        for i in range(rectlen):
+            for j in range(rectlen):
+                new_grid[i][j] = self.best_grid[i][j]
+        return new_grid
     #插入独立词语
 
     def insert_aloneword(self, word, is_insert_vert, is_insert_first, numlist = []):
@@ -430,7 +441,8 @@ def run_word(col=4, row=4, word_list=[], add_world_list=[], num=0):
 #as main load in xls & print out result
 def load_word(sheet_name, col_num, write_col, sheet_index, alone_col):
     # load in xls by ggod
-    workbook = xlrd.open_workbook(r'/Users/ggod/Desktop/wordxls/word4.xls') 
+    #workbook = xlrd.open_workbook(r'/Users/ggod/Desktop/wordxls/word4.xls')
+    workbook = xlrd.open_workbook(r'C:/Users/Administrator/Desktop/wordxls/word4.xls') 
     sheet = workbook.sheet_by_name(sheet_name)
     data = sheet.col_values(col_num) 
     add_data = sheet.col_values(alone_col)
@@ -449,7 +461,8 @@ def load_word(sheet_name, col_num, write_col, sheet_index, alone_col):
             json_result = json.dumps(result)
             write_sheet.write(row, write_col, json_result)
         row += 1
-    copyworkbook.save(r'/Users/ggod/Desktop/wordxls/word4.xls')
+    #copyworkbook.save(r'/Users/ggod/Desktop/wordxls/word4.xls')
+    copyworkbook.save(r'C:/Users/Administrator/Desktop/wordxls/word4.xls')
 
 load_word('ErrorList', 4, 7, 0, 6)
 
