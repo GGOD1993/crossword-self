@@ -123,8 +123,8 @@ class Crossword(object):
                     data_list.append(word_dict)
                     self.result["data"] = data_list
                 break
-
-        for i in range(len(self.add_world_list)):
+        i = 0
+        while i < len(self.add_world_list):
             wordindex = 0
             resultlist = calculate_ilegalrect(self.best_grid)
 
@@ -137,9 +137,10 @@ class Crossword(object):
                 for coord in insert_pos:
                     self.best_grid[coord[0]][coord[1]] = self.add_world_list[i][0][wordindex]
                     wordindex += 1
+                i+=1
             else:
                 self.best_grid = self.extend_best_grid()
-                i-=1
+                print self.best_grid
 
 
             answer = '\n'.join([''.join([u'{} '.format(c) for c in self.best_grid[r]])
